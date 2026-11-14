@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Vila Voz</title>
+<meta name="theme-color" content="#05070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vila Voz">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="icon" href="icone-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --noite:#05070d;--vidro:#0c111b;--vidro-2:#141b28;--fio:rgba(242,193,78,.3);
+  --ouro:#f2c14e;--texto:#edf1f6;--texto-2:#9aa7b8;--ok:#5fd68a;--alerta:#ffb347;--critico:#ff6b6b;
+  --acento:var(--ouro);color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--noite);color:var(--texto);font:16px/1.45 -apple-system,"SF Pro Text",system-ui,sans-serif;
+  display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow:hidden}
+button,input,textarea{font:inherit;color:inherit}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px 6px}
+header h1{margin:0;font-size:19px;letter-spacing:.06em;color:var(--ouro);font-weight:700}
+header h1 b{color:var(--texto);font-weight:500}
+.mini{background:none;border:1px solid var(--fio);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--texto-2)}
+.agentes{display:flex;gap:8px;overflow-x:auto;padding:6px 16px 10px;scrollbar-width:none}
+.agentes::-webkit-scrollbar{display:none}
+.agentes button{flex:none;border:1px solid rgba(255,255,255,.12);background:var(--vidro);border-radius:999px;padding:6px 14px;font-size:15px;color:var(--texto-2)}
+.agentes button[aria-pressed="true"]{border-color:var(--acento);color:var(--texto);background:var(--vidro-2);box-shadow:inset 0 -2px 0 var(--acento)}
+#log{flex:1;overflow-y:auto;padding:6px 16px 12px;display:flex;flex-direction:column;gap:8px}
+.vazio{color:var(--texto-2);font-size:15px;text-align:center;margin:auto 12px}
+.bolha{max-width:88%;padding:8px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px}
+.eu{align-self:flex-end;background:rgba(242,193,78,.13);border:1px solid rgba(242,193,78,.3)}
+.ag{align-self:flex-start;background:var(--vidro-2);border-left:3px solid var(--acento)}
+.ordem{align-self:stretch;border:1px solid var(--alerta);border-radius:12px;padding:10px 12px;background:rgba(255,179,71,.08);display:grid;gap:8px}
+.ordem p{margin:0}.ordem small{color:var(--alerta);font-weight:600;letter-spacing:.04em}
+.painel{padding:10px 16px 14px;border-top:1px solid var(--fio);background:linear-gradient(#05070d00,#05070d 30%)}
+.rascunho{display:grid;gap:8px;margin-bottom:12px}
+.rascunho textarea{width:100%;min-height:72px;max-height:30vh;resize:none;background:#000;border:1px solid var(--fio);border-radius:12px;padding:10px 12px;font-size:16px}
+.acoes{display:flex;gap:8px;flex-wrap:wrap}
+.botao{border:1px solid var(--ouro);background:var(--ouro);color:#14100a;border-radius:10px;padding:9px 18px;font-weight:600;font-size:16px}
+.botao.quieto{background:none;color:var(--texto);border-color:var(--fio)}
+.botao[disabled]{opacity:.45}
+.estado{min-height:22px;text-align:center;color:var(--texto-2);font-size:14px;margin-bottom:8px}
+.estado.erro{color:var(--alerta)}
+#falar{display:block;margin:0 auto;width:132px;height:132px;border-radius:50%;border:2px solid var(--ouro);
+  background:radial-gradient(circle at 50% 40%,#1b2232,#0a0e16);color:var(--ouro);font-weight:700;font-size:15px;letter-spacing:.04em;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+#falar svg{display:block;margin:0 auto 4px;width:38px;height:38px}
+#falar.gravando{background:radial-gradient(circle,#ff6b6b33,#0a0e16 70%);border-color:var(--critico);color:var(--critico);transform:scale(1.06)}
+#falar.ocupado{opacity:.5}
+.dica{text-align:center;color:var(--texto-2);font-size:13px;margin-top:8px}
+.tela{position:fixed;inset:0;background:var(--noite);display:grid;place-content:center;gap:14px;padding:24px;text-align:center;z-index:5}
+.tela h2{margin:0;color:var(--ouro);font-size:22px}
+.tela p{margin:0;color:var(--texto-2);max-width:320px}
+.tela input{background:#000;border:1px solid var(--fio);border-radius:10px;padding:10px 12px;text-align:center;font-size:18px;letter-spacing:.12em}
+@media (prefers-reduced-motion:no-preference){#falar{transition:transform .12s,background .12s,border-color .12s}}
+</style>
+</head>
+<body>
+<div class="tela" id="tela-pin" hidden>
+  <h2>Vila Voz</h2>
+  <p>Digite o código de acesso uma vez. Ele fica guardado neste iPhone.</p>
+  <input id="pin" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Código de acesso">
+  <button class="botao" id="pin-ok" type="button">Entrar</button>
+  <p class="estado erro" id="pin-erro"></p>
+</div>
+<div class="tela" id="tela-ativar" hidden>
+  <h2>Vila Voz</h2>
+  <p>Toque para ligar o som e o microfone desta conversa.</p>
+  <button class="botao" id="ativar" type="button">Começar</button>
+</div>
+
+<header>
+  <h1>VILA <b>VOZ</b></h1>
+  <div class="acoes"><button class="mini" id="calar" type="button" hidden>Parar voz</button><button class="mini" id="modo" type="button">Mãos-livres</button><button class="mini" id="limpar" type="button">Limpar</button></div>
+</header>
+<nav class="agentes" id="agentes" aria-label="Agente"></nav>
+<main id="log" aria-live="polite"></main>
+<section class="painel">
+  <div class="rascunho" id="rascunho" hidden>
+    <textarea id="texto" aria-label="Mensagem para conferir"></textarea>
+    <div class="acoes">
+      <button class="botao" id="enviar" type="button">Enviar</button>
+      <button class="botao quieto" id="descartar" type="button">Descartar</button>
+      <button class="botao quieto" id="repetir" type="button" hidden>Transcrever de novo</button>
+    </div>
+  </div>
+  <p class="estado" id="estado"></p>
+  <button id="falar" type="button" aria-label="Segure para falar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    <span id="falar-txt">SEGURE</span>
+  </button>
+  <p class="dica" id="dica">Segure para falar. Ao soltar, você confere o texto antes de enviar.</p>
+</section>
+
+<script>
+"use strict";
+const API="https://qynjuiwexgvyfczgpnnc.supabase.co/functions/v1/vila-voz";
+const AGENTES=[["mare","Claudia","#4f9dff"],["labia","Janete","#ff5fa2"],["cifra","Maurício","#f2c14e"],["farol","Caio","#ff9a4d"],["faisca","Jadi","#4fe3f0"],["moviola","Mitch","#ff7a45"],["sjvocal","Rose","#c38bff"]];
+const NOME=Object.fromEntries(AGENTES.map(a=>[a[0],a[1]]));
+const $=s=>document.querySelector(s);
+const guarda={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+let pin=guarda.get("vv-pin",""),agente=guarda.get("vv-agente","mare"),hist=guarda.get("vv-hist",{});
+let gravador=null,pedacos=[],fluxo=null,inicio=0,soltou=false,ultimoAudio=null,ocupado=false,abortar=null;
+
+function estado(t,erro){const e=$("#estado");e.textContent=t||"";e.classList.toggle("erro",!!erro);}
+function msgErro(c){return({pin:"Código de acesso errado.",sem_chave_groq:"Falta cadastrar a chave da Groq no Supabase.",sem_token_vila:"Falta cadastrar o token da linha direta no Supabase.",limite:"Limite gratuito da Groq atingido. Espere um minuto.",audio_curto:"Áudio curto demais. Segure e fale de novo.",linha_direta:"A linha direta da Vila não aceitou o pedido."})[c]||"Não deu certo agora. Tente de novo.";}
+
+async function chamar(op,corpo,json=true){
+  const r=await fetch(API+"?op="+op,{method:"POST",headers:Object.assign({"x-vila-pin":pin},json?{"Content-Type":"application/json"}:{}),body:json?JSON.stringify(corpo||{}):corpo,signal:corpo&&corpo.signal});
+  if(!r.ok){let c="";try{c=(await r.json()).erro;}catch(e){}if(c==="pin"){pin="";guarda.set("vv-pin","");mostrarPin("Código de acesso errado.");}throw Object.assign(new Error(c||String(r.status)),{codigo:c});}
+  return r;}
+
+/* ---------- agentes e conversa ---------- */
+function pintarAgentes(){const n=$("#agentes");n.innerHTML="";AGENTES.forEach(([id,nome,cor])=>{const b=document.createElement("button");b.type="button";b.textContent=nome;b.style.setProperty("--acento",cor);b.setAttribute("aria-pressed",id===agente);b.onclick=()=>{agente=id;guarda.set("vv-agente",id);pintarAgentes();pintarLog();};n.appendChild(b);});
+  document.documentElement.style.setProperty("--acento",(AGENTES.find(a=>a[0]===agente)||AGENTES[0])[2]);}
+function log(){return hist[agente]=hist[agente]||[];}
+function salvar(){Object.keys(hist).forEach(k=>{hist[k]=hist[k].slice(-30);});guarda.set("vv-hist",hist);}
+function pintarLog(){const l=$("#log");l.innerHTML="";const h=log();
+  if(!h.length){const p=document.createElement("p");p.className="vazio";p.textContent="Fale com "+NOME[agente]+". Pedidos para fazer algo viram ordem, e você decide se manda para a Vila.";l.appendChild(p);return;}
+  h.forEach((m,i)=>{if(m.role==="ordem"){l.appendChild(cartaoOrdem(m,i));return;}const p=document.createElement("p");p.className="bolha "+(m.role==="user"?"eu":"ag");p.textContent=m.content;l.appendChild(p);});
+  l.scrollTop=l.scrollHeight;}
+function cartaoOrdem(m,i){const d=document.createElement("div");d.className="ordem";
+  const s=document.createElement("small");s.textContent=m.enviada?"ORDEM ENVIADA À VILA":"ORDEM PARA A VILA";const p=document.createElement("p");p.textContent=m.content;d.append(s,p);
+  if(m.enviada&&m.status){const q=document.createElement("p");q.className="dica";q.style.textAlign="left";q.textContent=m.status;d.appendChild(q);}
+  if(!m.enviada){const a=document.createElement("div");a.className="acoes";const b=document.createElement("button");b.className="botao";b.type="button";b.textContent="Mandar para a Vila";
+    const x=document.createElement("button");x.className="botao quieto";x.type="button";x.textContent="Não mandar";
+    b.onclick=async()=>{b.disabled=x.disabled=true;if(!await mandarOrdem(m))b.disabled=x.disabled=false;};
+    x.onclick=()=>{log().splice(i,1);salvar();pintarLog();};a.append(b,x);d.appendChild(a);}
+  return d;}
+
+async function mandarOrdem(m){estado("Mandando para a linha direta…");
+  try{await chamar("ordem",{agente:m.agente,texto:m.content});m.enviada=true;m.enviadaEm=new Date().toISOString();m.status="Na fila da linha direta.";acompanhar();salvar();pintarLog();estado("Gravado na linha direta.");return true;}
+  catch(e){estado(msgErro(e.codigo),true);return false;}}
+
+/* ---------- voz ---------- */
+let voz=null;
+function escolherVoz(){const vs=speechSynthesis.getVoices().filter(v=>/^pt(-|_)BR/i.test(v.lang));
+  voz=vs.find(v=>/aprimorad|enhanced|premium|melhorad/i.test(v.name))||vs.find(v=>/luciana|felipe/i.test(v.name))||vs[0]||null;}
+if("speechSynthesis" in window){escolherVoz();speechSynthesis.onvoiceschanged=escolherVoz;}
+function falar(t){if(!("speechSynthesis" in window)||!t.trim()||(typeof MAOS!=="undefined"&&MAOS.calado))return;const u=new SpeechSynthesisUtterance(t.trim());u.lang="pt-BR";if(voz)u.voice=voz;u.rate=1.05;
+  u.onstart=()=>{$("#calar").hidden=false;};u.onend=u.onerror=()=>{if(!speechSynthesis.speaking&&!speechSynthesis.pending)$("#calar").hidden=true;};speechSynthesis.speak(u);}
+function calar(){try{speechSynthesis.cancel();}catch(e){}$("#calar").hidden=true;}
+$("#calar").onclick=calar;
+
+/* ---------- gravação (segurar para falar) ---------- */
+const botao=$("#falar");
+botao.addEventListener("contextmenu",e=>e.preventDefault());
+botao.addEventListener("pointerdown",async e=>{e.preventDefault();if(MAOS.ligado){MAOS.toque();return;}if(ocupado||gravador)return;calar();soltou=false;
+  try{botao.setPointerCapture(e.pointerId);}catch(_){}
+  try{fluxo=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});}
+  catch(err){estado("Microfone não liberado. Libere em Ajustes > Safari > Microfone.",true);return;}
+  if(soltou){parar(fluxo);estado("Microfone pronto. Agora segure e fale.");return;}
+  const tipo=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||"";
+  pedacos=[];gravador=new MediaRecorder(fluxo,tipo?{mimeType:tipo}:undefined);
+  gravador.ondataavailable=ev=>{if(ev.data&&ev.data.size)pedacos.push(ev.data);};
+  gravador.onstop=()=>{const g=gravador;gravador=null;parar(fluxo);const dur=Date.now()-inicio;botao.classList.remove("gravando");$("#falar-txt").textContent="SEGURE";
+    if(dur<500||!pedacos.length){estado("Muito curto. Segure enquanto fala.");return;}
+    const b=new Blob(pedacos,{type:g.mimeType||tipo||"audio/mp4"});transcrever(b);};
+  gravador.start();inicio=Date.now();botao.classList.add("gravando");$("#falar-txt").textContent="OUVINDO";estado("Ouvindo… solte quando terminar.");});
+function soltar(){if(MAOS.ligado)return;soltou=true;if(gravador&&gravador.state==="recording")gravador.stop();}
+["pointerup","pointercancel","lostpointercapture"].forEach(t=>botao.addEventListener(t,soltar));
+function parar(f){if(f)f.getTracks().forEach(t=>t.stop());}
+
+async function transcrever(blob){ultimoAudio=blob;ocupado=true;botao.classList.add("ocupado");estado("Transcrevendo…");$("#repetir").hidden=true;
+  try{const ext=/webm/.test(blob.type)?"webm":"m4a";const f=new FormData();f.append("audio",blob,"fala."+ext);
+    const r=await chamar("transcrever",f,false);const d=await r.json();const t=(d.texto||"").trim();
+    if(!t){estado("Não entendi nada. Segure e fale de novo.",true);return;}
+    const ta=$("#texto");ta.value=(ta.value.trim()?ta.value.trim()+" ":"")+t;$("#rascunho").hidden=false;ultimoAudio=null;
+    estado("Confira o texto. Segure de novo para continuar falando.");}
+  catch(e){estado(msgErro(e.codigo)+" O áudio ficou guardado.",true);$("#rascunho").hidden=false;$("#repetir").hidden=false;}
+  finally{ocupado=false;botao.classList.remove("ocupado");}}
+$("#repetir").onclick=()=>{if(ultimoAudio)transcrever(ultimoAudio);};
+$("#descartar").onclick=()=>{$("#texto").value="";$("#rascunho").hidden=true;ultimoAudio=null;estado("Descartado.");};
+
+/* ---------- enviar e receber em streaming ---------- */
+$("#enviar").onclick=()=>{const t=$("#texto").value.trim();if(t&&!ocupado)enviarTexto(t);};
+async function enviarTexto(t){let novaOrdem=null;
+  ocupado=true;$("#enviar").disabled=true;calar();const id=agente,h=log();h.push({role:"user",content:t});$("#texto").value="";$("#rascunho").hidden=true;
+  const vez={role:"assistant",content:""};h.push(vez);pintarLog();estado(NOME[id]+" está respondendo…");
+  const bolha=$("#log").lastElementChild;let falado=0,buf="";
+  const fala=fim=>{const vis=vez.content.split("[ORDEM]")[0];let ate=fim?vis.length:Math.max(vis.lastIndexOf(". "),vis.lastIndexOf("? "),vis.lastIndexOf("! "))+1;if(ate>falado){falar(vis.slice(falado,ate));falado=ate;}};
+  try{const msgs=h.filter(m=>m.role==="user"||m.role==="assistant").filter(m=>m!==vez).slice(-16).map(m=>({role:m.role,content:m.content}));
+    const r=await chamar("conversar",{agente:id,mensagens:msgs});const rd=r.body.getReader(),dec=new TextDecoder();
+    for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const linhas=buf.split("\n");buf=linhas.pop();
+      for(const l of linhas){const s=l.trim();if(!s.startsWith("data:"))continue;const dado=s.slice(5).trim();if(dado==="[DONE]")continue;
+        try{const d=JSON.parse(dado);const pd=d.choices&&d.choices[0]&&d.choices[0].delta&&d.choices[0].delta.content;if(pd){vez.content+=pd;bolha.textContent=vez.content.split("[ORDEM]")[0].trim();$("#log").scrollTop=1e9;fala(false);}}catch(_){}}}
+    fala(true);
+    const partes=vez.content.split("[ORDEM]");vez.content=partes[0].trim()||"Certo.";
+    if(partes[1]&&partes[1].trim()){novaOrdem={role:"ordem",agente:id,content:partes[1].trim()};h.push(novaOrdem);}
+    estado("");}
+  catch(e){vez.content="(sem resposta)";estado(msgErro(e.codigo),true);h.splice(h.length-2,2);if(MAOS.ligado)falar(msgErro(e.codigo));else{$("#texto").value=t;$("#rascunho").hidden=false;}}
+  finally{ocupado=false;$("#enviar").disabled=false;salvar();pintarLog();}
+  return novaOrdem;}
+
+/* ---------- mãos-livres: ouve sozinho, envia quando você para de falar ---------- */
+const MAOS={ligado:false,fase:"parado",fluxo:null,ctx:null,src:null,an:null,rec:null,pedacos:[],buf:null,falandoU:false,cont:0,ini:0,ultimoSom:0,recIni:0,piso:0.008,timer:null,ordem:null};
+const SIM=/^(sim|pode|manda|mande|confirm|isso|beleza|ok|okay|fechado|claro|com certeza|positivo)\b/i,NAO=/^(n[ãa]o|cancela|deixa|esquece|negativo)\b/i;
+function rotulo(t,dica){$("#falar-txt").textContent=t;$("#dica").textContent=dica;botao.classList.toggle("gravando",MAOS.fase==="ouvindo"&&MAOS.falandoU);botao.classList.toggle("ocupado",MAOS.fase==="pensando");}
+MAOS.fase_=function(f){MAOS.fase=f;({ouvindo:()=>rotulo("OUVINDO","Pode falar. Envio quando você parar. Toque para pausar."),pensando:()=>rotulo("PENSANDO",NOME[agente]+" está pensando…"),falando:()=>rotulo("FALANDO","Toque para interromper e falar."),parado:()=>rotulo("PAUSADO","Toque para voltar a ouvir.")})[f]();};
+async function abrirMic(){if(MAOS.fluxo)return true;
+  try{MAOS.fluxo=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
+  catch(e){estado("Microfone não liberado. Libere em Ajustes > Safari > Microfone.",true);return false;}
+  try{MAOS.ctx=MAOS.ctx||new (window.AudioContext||window.webkitAudioContext)();if(MAOS.ctx.state==="suspended")await MAOS.ctx.resume();
+    MAOS.src=MAOS.ctx.createMediaStreamSource(MAOS.fluxo);MAOS.an=MAOS.ctx.createAnalyser();MAOS.an.fftSize=1024;MAOS.src.connect(MAOS.an);MAOS.buf=new Float32Array(MAOS.an.fftSize);}catch(e){}
+  return true;}
+function fecharMic(){try{MAOS.src&&MAOS.src.disconnect();}catch(e){}MAOS.src=MAOS.an=null;parar(MAOS.fluxo);MAOS.fluxo=null;}
+function novoRec(){const tipo=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||"";
+  MAOS.pedacos=[];MAOS.rec=new MediaRecorder(MAOS.fluxo,tipo?{mimeType:tipo}:undefined);MAOS.rec.ondataavailable=ev=>{if(ev.data&&ev.data.size)MAOS.pedacos.push(ev.data);};MAOS.rec.start();MAOS.recIni=Date.now();}
+async function ouvir(){if(!MAOS.ligado)return;if(!await abrirMic()){desligarMaos();return;}
+  MAOS.falandoU=false;MAOS.cont=0;novoRec();MAOS.fase_("ouvindo");estado("");}
+function pararRec(){return new Promise(res=>{const r=MAOS.rec;MAOS.rec=null;if(!r||r.state==="inactive")return res(null);r.onstop=()=>res(new Blob(MAOS.pedacos,{type:r.mimeType||"audio/mp4"}));r.stop();});}
+function nivel(){if(!MAOS.an)return 0;MAOS.an.getFloatTimeDomainData(MAOS.buf);let s=0;for(let i=0;i<MAOS.buf.length;i++)s+=MAOS.buf[i]*MAOS.buf[i];return Math.sqrt(s/MAOS.buf.length);}
+function vigiar(){if(!MAOS.ligado||MAOS.fase!=="ouvindo"||!MAOS.rec)return;const v=nivel(),agora=Date.now();
+  if(!MAOS.falandoU){MAOS.piso=Math.max(0.003,Math.min(0.08,MAOS.piso*0.96+v*0.04));
+    if(v>Math.max(MAOS.piso*2.2,MAOS.piso+0.02)){if(++MAOS.cont>=3){MAOS.falandoU=true;MAOS.ini=agora;MAOS.ultimoSom=agora;botao.classList.add("gravando");}}else MAOS.cont=0;
+    if(!MAOS.falandoU&&agora-MAOS.recIni>25000){pararRec().then(()=>{if(MAOS.fase==="ouvindo")novoRec();});}}
+  else{if(v>Math.max(MAOS.piso*1.6,MAOS.piso+0.01))MAOS.ultimoSom=agora;
+    if(agora-MAOS.ultimoSom>1100||agora-MAOS.ini>60000){if(agora-MAOS.ini<450){MAOS.falandoU=false;MAOS.cont=0;botao.classList.remove("gravando");}else turno();}}}
+async function turno(){MAOS.calado=false;MAOS.fase_("pensando");const blob=await pararRec();fecharMic();if(!blob||!MAOS.ligado)return ouvir();
+  let t="";try{const ext=/webm/.test(blob.type)?"webm":"m4a";const f=new FormData();f.append("audio",blob,"fala."+ext);const r=await chamar("transcrever",f,false);t=((await r.json()).texto||"").trim();}
+  catch(e){estado(msgErro(e.codigo),true);if(e.codigo==="limite"||e.codigo==="sem_chave_groq"){falar(msgErro(e.codigo));await fimFala();desligarMaos();return;}return ouvir();}
+  if(!t||t.length<2||/^(obrigad[oa]|tchau|legendas?|e a[ií]|\.|…)[.!…\s]*$/i.test(t)||/amara\.org|inscreva-se/i.test(t))return ouvir();
+  if(MAOS.ordem&&!MAOS.ordem.enviada&&t.split(/\s+/).length<=6){const m=MAOS.ordem;
+    if(SIM.test(t)){log().push({role:"user",content:t});MAOS.ordem=null;pintarLog();const ok=await mandarOrdem(m);falar(ok?"Mandei para "+NOME[m.agente]+". Te aviso quando terminar.":"Não consegui mandar agora.");await fimFala();return ouvir();}
+    if(NAO.test(t)){log().push({role:"user",content:t});const i=log().indexOf(m);if(i>=0)log().splice(i,1);MAOS.ordem=null;salvar();pintarLog();falar("Tá, não mandei.");await fimFala();return ouvir();}}
+  MAOS.fase_("falando");const o=await enviarTexto(t);if(o)MAOS.ordem=o;await fimFala();if(MAOS.ligado&&MAOS.fase!=="parado")ouvir();}
+function fimFala(){return new Promise(res=>{const t0=Date.now();const iv=setInterval(()=>{if(MAOS.fase==="parado"||((!speechSynthesis.speaking&&!speechSynthesis.pending)&&Date.now()-t0>400)||Date.now()-t0>90000){clearInterval(iv);setTimeout(res,250);}},150);});}
+MAOS.toque=function(){calar();if(MAOS.fase==="ouvindo"){pararRec();fecharMic();MAOS.fase_("parado");return;}if(MAOS.fase==="parado"){ouvir();return;}if(MAOS.fase==="falando"||MAOS.fase==="pensando")MAOS.calado=true;};
+function ligarMaos(){MAOS.ligado=true;guarda.set("vv-modo","maos");$("#modo").textContent="Mãos-livres";$("#rascunho").hidden=true;if(!MAOS.timer)MAOS.timer=setInterval(vigiar,60);ouvir();}
+function desligarMaos(){MAOS.ligado=false;guarda.set("vv-modo","segurar");$("#modo").textContent="Segurar";pararRec();fecharMic();MAOS.fase="parado";botao.classList.remove("gravando","ocupado");$("#falar-txt").textContent="SEGURE";$("#dica").textContent="Segure para falar. Ao soltar, você confere o texto antes de enviar.";}
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&MAOS.ligado&&MAOS.fase==="ouvindo"){pararRec();fecharMic();MAOS.fase_("parado");}});
+
+/* ---------- acompanhar ordens enviadas (fotografia gravada pela Vila) ---------- */
+let acomp=null;
+function pendentes(){const r=[];Object.keys(hist).forEach(k=>hist[k].forEach(m=>{if(m.role==="ordem"&&m.enviada&&!m.fim&&Date.now()-Date.parse(m.enviadaEm||0)<6*3600e3)r.push(m);}));return r;}
+async function acompanhar(){if(acomp)return;const passo=async()=>{const ps=pendentes();if(!ps.length){clearInterval(acomp);acomp=null;return;}
+  try{const r=await chamar("ordens");const d=await r.json();let mudou=false;
+    ps.forEach(m=>{const o=(d.ordens||[]).filter(x=>x.agente===NOME[m.agente]&&Date.parse(x.quando||0)>=Date.parse(m.enviadaEm)-120e3).sort((a,b)=>Date.parse(a.quando)-Date.parse(b.quando))[0];
+      if(!o)return;const st=o.status==="feita"?"Feito"+(o.resposta?": "+o.resposta:"."):o.status==="falhou"?"Falhou"+(o.resposta?": "+o.resposta:"."):"Gravado para "+o.agente+". Status: "+o.status+".";
+      if(st!==m.status){m.status=st;mudou=true;if(o.status==="feita"||o.status==="falhou"){m.fim=true;falar(NOME[m.agente]+": "+st);}}});
+    if(mudou){salvar();pintarLog();}}catch(e){}};
+  acomp=setInterval(passo,45000);passo();}
+$("#limpar").onclick=()=>{hist[agente]=[];salvar();pintarLog();estado("Conversa com "+NOME[agente]+" limpa.");};
+
+/* ---------- entrada ---------- */
+function mostrarPin(msg){$("#tela-pin").hidden=false;$("#pin-erro").textContent=msg||"";setTimeout(()=>$("#pin").focus(),50);}
+$("#pin-ok").onclick=async()=>{const v=$("#pin").value.trim();if(!v)return;pin=v;$("#pin-erro").textContent="Conferindo…";
+  try{const r=await chamar("ping");const d=await r.json();guarda.set("vv-pin",pin);$("#tela-pin").hidden=true;$("#tela-ativar").hidden=false;
+    if(!d.groq)estado("Falta cadastrar a chave da Groq no Supabase.",true);else if(!d.linha)estado("Conversa pronta. Para mandar ordens, falta o token da linha direta.");}
+  catch(e){if(e.codigo!=="pin")$("#pin-erro").textContent="Sem conexão com a Vila. Tente de novo.";}};
+$("#pin").addEventListener("keydown",e=>{if(e.key==="Enter")$("#pin-ok").click();});
+$("#ativar").onclick=()=>{try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  try{MAOS.ctx=new (window.AudioContext||window.webkitAudioContext)();MAOS.ctx.resume();}catch(e){}$("#tela-ativar").hidden=true;
+  if(guarda.get("vv-modo","maos")==="maos")ligarMaos();else desligarMaos();};
+$("#modo").onclick=()=>{calar();if(MAOS.ligado)desligarMaos();else ligarMaos();};
+
+pintarAgentes();pintarLog();if(pin)acompanhar();
+if(!pin)mostrarPin();else $("#tela-ativar").hidden=false;
+</script>
+</body>
+</html>
