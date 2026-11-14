@@ -78,7 +78,7 @@ header h1 b{color:var(--texto);font-weight:500}
 
 <header>
   <h1>VILA <b>VOZ</b></h1>
-  <div class="acoes"><button class="mini" id="calar" type="button" hidden>Parar voz</button><button class="mini" id="modo" type="button">Mãos-livres</button><button class="mini" id="limpar" type="button">Limpar</button></div>
+  <div class="acoes"><button class="mini" id="calar" type="button" hidden>Parar voz</button><button class="mini" id="testar" type="button">Testar voz</button><button class="mini" id="modo" type="button">Mãos-livres</button><button class="mini" id="limpar" type="button">Limpar</button></div>
 </header>
 <nav class="agentes" id="agentes" aria-label="Agente"></nav>
 <main id="log" aria-live="polite"></main>
@@ -144,10 +144,15 @@ let voz=null;
 function escolherVoz(){const vs=speechSynthesis.getVoices().filter(v=>/^pt(-|_)BR/i.test(v.lang));
   voz=vs.find(v=>/aprimorad|enhanced|premium|melhorad/i.test(v.name))||vs.find(v=>/luciana|felipe/i.test(v.name))||vs[0]||null;}
 if("speechSynthesis" in window){escolherVoz();speechSynthesis.onvoiceschanged=escolherVoz;}
-function falar(t){if(!("speechSynthesis" in window)||!t.trim()||(typeof MAOS!=="undefined"&&MAOS.calado))return;const u=new SpeechSynthesisUtterance(t.trim());u.lang="pt-BR";if(voz)u.voice=voz;u.rate=1.05;
+function falar(t){if(!("speechSynthesis" in window)||!t.trim()||(typeof MAOS!=="undefined"&&MAOS.calado))return;if(!voz)escolherVoz();const u=new SpeechSynthesisUtterance(t.trim());u.lang="pt-BR";if(voz)u.voice=voz;u.rate=1.05;
   u.onstart=()=>{$("#calar").hidden=false;};u.onend=u.onerror=()=>{if(!speechSynthesis.speaking&&!speechSynthesis.pending)$("#calar").hidden=true;};speechSynthesis.speak(u);}
 function calar(){try{speechSynthesis.cancel();}catch(e){}$("#calar").hidden=true;}
 $("#calar").onclick=calar;
+$("#testar").onclick=()=>{calar();escolherVoz();const vs=("speechSynthesis" in window)?speechSynthesis.getVoices().filter(v=>/^pt/i.test(v.lang)).length:-1;
+  if(vs<0){estado("Este navegador não tem voz. Abra pelo Safari.",true);return;}
+  const u=new SpeechSynthesisUtterance("Teste de voz da Vila. Se você está ouvindo, está tudo certo.");u.lang="pt-BR";if(voz)u.voice=voz;
+  u.onend=()=>estado("Voz ok"+(voz?": "+voz.name:"")+".");u.onerror=e=>estado("A voz falhou: "+(e.error||"erro")+". Confira se o iPhone não está no silencioso.",true);
+  speechSynthesis.speak(u);estado("Falando… Se não ouvir nada, tire o iPhone do modo silencioso e aumente o volume.");};
 
 /* ---------- gravação (segurar para falar) ---------- */
 const botao=$("#falar");
@@ -207,7 +212,7 @@ MAOS.fase_=function(f){MAOS.fase=f;({ouvindo:()=>rotulo("OUVINDO","Pode falar. E
 async function abrirMic(){if(MAOS.fluxo)return true;
   try{MAOS.fluxo=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
   catch(e){estado("Microfone não liberado. Libere em Ajustes > Safari > Microfone.",true);return false;}
-  try{MAOS.ctx=MAOS.ctx||new (window.AudioContext||window.webkitAudioContext)();if(MAOS.ctx.state==="suspended")await MAOS.ctx.resume();
+  try{MAOS.ctx=MAOS.ctx||new (window.AudioContext||window.webkitAudioContext)();if(MAOS.ctx.state!=="running")await MAOS.ctx.resume();
     MAOS.src=MAOS.ctx.createMediaStreamSource(MAOS.fluxo);MAOS.an=MAOS.ctx.createAnalyser();MAOS.an.fftSize=1024;MAOS.src.connect(MAOS.an);MAOS.buf=new Float32Array(MAOS.an.fftSize);}catch(e){}
   return true;}
 function fecharMic(){try{MAOS.src&&MAOS.src.disconnect();}catch(e){}MAOS.src=MAOS.an=null;parar(MAOS.fluxo);MAOS.fluxo=null;}
@@ -223,7 +228,7 @@ function vigiar(){if(!MAOS.ligado||MAOS.fase!=="ouvindo"||!MAOS.rec)return;const
     if(!MAOS.falandoU&&agora-MAOS.recIni>25000){pararRec().then(()=>{if(MAOS.fase==="ouvindo")novoRec();});}}
   else{if(v>Math.max(MAOS.piso*1.6,MAOS.piso+0.01))MAOS.ultimoSom=agora;
     if(agora-MAOS.ultimoSom>1100||agora-MAOS.ini>60000){if(agora-MAOS.ini<450){MAOS.falandoU=false;MAOS.cont=0;botao.classList.remove("gravando");}else turno();}}}
-async function turno(){MAOS.calado=false;MAOS.fase_("pensando");const blob=await pararRec();fecharMic();if(!blob||!MAOS.ligado)return ouvir();
+async function turno(){MAOS.calado=false;MAOS.fase_("pensando");const blob=await pararRec();fecharMic();try{MAOS.ctx&&MAOS.ctx.state==="running"&&MAOS.ctx.suspend();}catch(e){}if(!blob||!MAOS.ligado)return ouvir();
   let t="";try{const ext=/webm/.test(blob.type)?"webm":"m4a";const f=new FormData();f.append("audio",blob,"fala."+ext);const r=await chamar("transcrever",f,false);t=((await r.json()).texto||"").trim();}
   catch(e){estado(msgErro(e.codigo),true);if(e.codigo==="limite"||e.codigo==="sem_chave_groq"){falar(msgErro(e.codigo));await fimFala();desligarMaos();return;}return ouvir();}
   if(!t||t.length<2||/^(obrigad[oa]|tchau|legendas?|e a[ií]|\.|…)[.!…\s]*$/i.test(t)||/amara\.org|inscreva-se/i.test(t))return ouvir();
@@ -256,7 +261,7 @@ $("#pin-ok").onclick=async()=>{const v=$("#pin").value.trim();if(!v)return;pin=v
     if(!d.groq)estado("Falta cadastrar a chave da Groq no Supabase.",true);else if(!d.linha)estado("Conversa pronta. Para mandar ordens, falta o token da linha direta.");}
   catch(e){if(e.codigo!=="pin")$("#pin-erro").textContent="Sem conexão com a Vila. Tente de novo.";}};
 $("#pin").addEventListener("keydown",e=>{if(e.key==="Enter")$("#pin-ok").click();});
-$("#ativar").onclick=()=>{try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u);}catch(e){}
+$("#ativar").onclick=()=>{try{speechSynthesis.cancel();escolherVoz();const u=new SpeechSynthesisUtterance("Pronto, pode falar.");u.lang="pt-BR";if(voz)u.voice=voz;speechSynthesis.speak(u);}catch(e){}
   try{MAOS.ctx=new (window.AudioContext||window.webkitAudioContext)();MAOS.ctx.resume();}catch(e){}$("#tela-ativar").hidden=true;
   if(guarda.get("vv-modo","maos")==="maos")ligarMaos();else desligarMaos();};
 $("#modo").onclick=()=>{calar();if(MAOS.ligado)desligarMaos();else ligarMaos();};
