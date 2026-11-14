@@ -218,23 +218,26 @@ MAOS.fase_=function(f){MAOS.fase=f;({ouvindo:()=>rotulo("OUVINDO","Pode falar. E
 async function abrirMic(){if(MAOS.fluxo)return true;
   try{MAOS.fluxo=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
   catch(e){estado("Microfone não liberado. Libere em Ajustes > Safari > Microfone.",true);return false;}
-  try{MAOS.ctx=MAOS.ctx||new (window.AudioContext||window.webkitAudioContext)();if(MAOS.ctx.state!=="running")await MAOS.ctx.resume();
+  try{MAOS.ctx=MAOS.ctx||new (window.AudioContext||window.webkitAudioContext)();if(MAOS.ctx.state!=="running")await Promise.race([MAOS.ctx.resume(),new Promise(r=>setTimeout(r,800))]);
     MAOS.src=MAOS.ctx.createMediaStreamSource(MAOS.fluxo);MAOS.an=MAOS.ctx.createAnalyser();MAOS.an.fftSize=1024;MAOS.src.connect(MAOS.an);MAOS.buf=new Float32Array(MAOS.an.fftSize);}catch(e){}
+  if(!MAOS.ctx||MAOS.ctx.state!=="running"||!MAOS.an){fecharMic();return "travado";}
   return true;}
+function travou(){pararRec();fecharMic();MAOS.fase_("parado");$("#falar-txt").textContent="TOQUE";$("#dica").textContent="O iPhone pausou o microfone. Toque na bolinha para continuar a conversa.";}
 function fecharMic(){try{MAOS.src&&MAOS.src.disconnect();}catch(e){}MAOS.src=MAOS.an=null;parar(MAOS.fluxo);MAOS.fluxo=null;}
 function novoRec(){const tipo=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||"";
   MAOS.pedacos=[];MAOS.rec=new MediaRecorder(MAOS.fluxo,tipo?{mimeType:tipo}:undefined);MAOS.rec.ondataavailable=ev=>{if(ev.data&&ev.data.size)MAOS.pedacos.push(ev.data);};MAOS.rec.start();MAOS.recIni=Date.now();}
-async function ouvir(){if(!MAOS.ligado)return;if(!await abrirMic()){desligarMaos();return;}
-  MAOS.falandoU=false;MAOS.cont=0;novoRec();MAOS.fase_("ouvindo");estado("");}
+async function ouvir(){if(!MAOS.ligado)return;const ok=await abrirMic();if(!ok){desligarMaos();return;}if(ok==="travado"){travou();return;}
+  MAOS.falandoU=false;MAOS.cont=0;MAOS.zero=0;try{novoRec();}catch(e){travou();return;}MAOS.fase_("ouvindo");estado("");}
 function pararRec(){return new Promise(res=>{const r=MAOS.rec;MAOS.rec=null;if(!r||r.state==="inactive")return res(null);r.onstop=()=>res(new Blob(MAOS.pedacos,{type:r.mimeType||"audio/mp4"}));r.stop();});}
 function nivel(){if(!MAOS.an)return 0;MAOS.an.getFloatTimeDomainData(MAOS.buf);let s=0;for(let i=0;i<MAOS.buf.length;i++)s+=MAOS.buf[i]*MAOS.buf[i];return Math.sqrt(s/MAOS.buf.length);}
 function vigiar(){if(!MAOS.ligado||MAOS.fase!=="ouvindo"||!MAOS.rec)return;const v=nivel(),agora=Date.now();
+  if(v===0||(MAOS.ctx&&MAOS.ctx.state!=="running")){if(!MAOS.zero)MAOS.zero=agora;else if(agora-MAOS.zero>2500){travou();return;}}else MAOS.zero=0;
   if(!MAOS.falandoU){MAOS.piso=Math.max(0.003,Math.min(0.08,MAOS.piso*0.96+v*0.04));
     if(v>Math.max(MAOS.piso*2.2,MAOS.piso+0.02)){if(++MAOS.cont>=3){MAOS.falandoU=true;MAOS.ini=agora;MAOS.ultimoSom=agora;botao.classList.add("gravando");}}else MAOS.cont=0;
     if(!MAOS.falandoU&&agora-MAOS.recIni>25000){pararRec().then(()=>{if(MAOS.fase==="ouvindo")novoRec();});}}
   else{if(v>Math.max(MAOS.piso*1.6,MAOS.piso+0.01))MAOS.ultimoSom=agora;
     if(agora-MAOS.ultimoSom>1100||agora-MAOS.ini>60000){if(agora-MAOS.ini<450){MAOS.falandoU=false;MAOS.cont=0;botao.classList.remove("gravando");}else turno();}}}
-async function turno(){MAOS.calado=false;MAOS.fase_("pensando");const blob=await pararRec();fecharMic();try{MAOS.ctx&&MAOS.ctx.state==="running"&&MAOS.ctx.suspend();}catch(e){}if(!blob||!MAOS.ligado)return ouvir();
+async function turno(){MAOS.calado=false;MAOS.fase_("pensando");const blob=await pararRec();fecharMic();if(!blob||!MAOS.ligado)return ouvir();
   let t="";try{const ext=/webm/.test(blob.type)?"webm":"m4a";const f=new FormData();f.append("audio",blob,"fala."+ext);const r=await chamar("transcrever",f,false);t=((await r.json()).texto||"").trim();}
   catch(e){estado(msgErro(e.codigo),true);if(e.codigo==="limite"||e.codigo==="sem_chave_groq"){falar(msgErro(e.codigo));await fimFala();desligarMaos();return;}return ouvir();}
   if(!t||t.length<2||/^(obrigad[oa]|tchau|legendas?|e a[ií]|\.|…)[.!…\s]*$/i.test(t)||/amara\.org|inscreva-se/i.test(t))return ouvir();
@@ -246,7 +249,7 @@ function fimFala(){return new Promise(res=>{const t0=Date.now();const iv=setInte
 MAOS.toque=function(){calar();if(MAOS.fase==="ouvindo"){pararRec();fecharMic();MAOS.fase_("parado");return;}if(MAOS.fase==="parado"){ouvir();return;}if(MAOS.fase==="falando"||MAOS.fase==="pensando")MAOS.calado=true;};
 function ligarMaos(){MAOS.ligado=true;guarda.set("vv-modo","maos");$("#modo").textContent="Mãos-livres";$("#rascunho").hidden=true;if(!MAOS.timer)MAOS.timer=setInterval(vigiar,60);ouvir();}
 function desligarMaos(){MAOS.ligado=false;guarda.set("vv-modo","segurar");$("#modo").textContent="Segurar";pararRec();fecharMic();MAOS.fase="parado";botao.classList.remove("gravando","ocupado");$("#falar-txt").textContent="SEGURE";$("#dica").textContent="Segure para falar. Ao soltar, você confere o texto antes de enviar.";}
-document.addEventListener("visibilitychange",()=>{if(document.hidden&&MAOS.ligado&&MAOS.fase==="ouvindo"){pararRec();fecharMic();MAOS.fase_("parado");}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&MAOS.ligado&&MAOS.fase==="ouvindo")travou();});
 
 /* ---------- acompanhar ordens enviadas (fotografia gravada pela Vila) ---------- */
 let acomp=null;
