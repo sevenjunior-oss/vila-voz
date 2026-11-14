@@ -24,9 +24,10 @@ html,body{margin:0;height:100%}
 body{background:var(--noite);color:var(--texto);font:16px/1.45 -apple-system,"SF Pro Text",system-ui,sans-serif;
   display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow:hidden}
 button,input,textarea{font:inherit;color:inherit}
-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px 6px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 16px 6px}
 header h1{margin:0;font-size:19px;letter-spacing:.06em;color:var(--ouro);font-weight:700}
 header h1 b{color:var(--texto);font-weight:500}
+select.mini{max-width:150px;background:var(--vidro);appearance:none;-webkit-appearance:none}
 .mini{background:none;border:1px solid var(--fio);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--texto-2)}
 .agentes{display:flex;gap:8px;overflow-x:auto;padding:6px 16px 10px;scrollbar-width:none}
 .agentes::-webkit-scrollbar{display:none}
@@ -78,7 +79,7 @@ header h1 b{color:var(--texto);font-weight:500}
 
 <header>
   <h1>VILA <b>VOZ</b></h1>
-  <div class="acoes"><button class="mini" id="calar" type="button" hidden>Parar voz</button><button class="mini" id="testar" type="button">Testar voz</button><button class="mini" id="modo" type="button">Mãos-livres</button><button class="mini" id="limpar" type="button">Limpar</button></div>
+  <div class="acoes"><button class="mini" id="calar" type="button" hidden>Parar voz</button><select class="mini" id="vozes" aria-label="Voz do agente"></select><button class="mini" id="testar" type="button">Testar voz</button><button class="mini" id="modo" type="button">Mãos-livres</button><button class="mini" id="limpar" type="button">Limpar</button></div>
 </header>
 <nav class="agentes" id="agentes" aria-label="Agente"></nav>
 <main id="log" aria-live="polite"></main>
@@ -141,13 +142,18 @@ async function mandarOrdem(m){estado("Mandando para a linha direta…");
 
 /* ---------- voz ---------- */
 let voz=null;
-function escolherVoz(){const vs=speechSynthesis.getVoices().filter(v=>/^pt(-|_)BR/i.test(v.lang));
-  voz=vs.find(v=>/aprimorad|enhanced|premium|melhorad/i.test(v.name))||vs.find(v=>/luciana|felipe/i.test(v.name))||vs[0]||null;}
+function vozesPt(){try{return speechSynthesis.getVoices().filter(v=>/^pt(-|_)BR/i.test(v.lang));}catch(e){return[];}}
+function qualidade(v){const t=(v.name+" "+v.voiceURI).toLowerCase();return /premium/.test(t)?2:/enhanced|aprimorad|melhorad|neural|natural/.test(t)?1:0;}
+function escolherVoz(){const vs=vozesPt(),fav=guarda.get("vv-voz","");
+  voz=vs.find(v=>v.voiceURI===fav)||vs.slice().sort((a,b)=>qualidade(b)-qualidade(a))[0]||null;pintarVozes();}
+function pintarVozes(){const sel=document.getElementById("vozes");if(!sel)return;const vs=vozesPt();
+  sel.innerHTML=vs.map(v=>'<option value="'+v.voiceURI.replace(/"/g,"&quot;")+'"'+(voz&&v.voiceURI===voz.voiceURI?" selected":"")+">"+v.name.replace(/</g,"")+(qualidade(v)===2?" (premium)":qualidade(v)===1?" (aprimorada)":"")+"</option>").join("")||"<option>Voz padrão</option>";}
 if("speechSynthesis" in window){escolherVoz();speechSynthesis.onvoiceschanged=escolherVoz;}
 function falar(t){if(!("speechSynthesis" in window)||!t.trim()||(typeof MAOS!=="undefined"&&MAOS.calado))return;if(!voz)escolherVoz();const u=new SpeechSynthesisUtterance(t.trim());u.lang="pt-BR";if(voz)u.voice=voz;u.rate=1.05;
   u.onstart=()=>{$("#calar").hidden=false;};u.onend=u.onerror=()=>{if(!speechSynthesis.speaking&&!speechSynthesis.pending)$("#calar").hidden=true;};speechSynthesis.speak(u);}
 function calar(){try{speechSynthesis.cancel();}catch(e){}$("#calar").hidden=true;}
 $("#calar").onclick=calar;
+document.getElementById("vozes").addEventListener("change",e=>{guarda.set("vv-voz",e.target.value);escolherVoz();$("#testar").click();});
 $("#testar").onclick=()=>{calar();escolherVoz();const vs=("speechSynthesis" in window)?speechSynthesis.getVoices().filter(v=>/^pt/i.test(v.lang)).length:-1;
   if(vs<0){estado("Este navegador não tem voz. Abra pelo Safari.",true);return;}
   const u=new SpeechSynthesisUtterance("Teste de voz da Vila. Se você está ouvindo, está tudo certo.");u.lang="pt-BR";if(voz)u.voice=voz;
